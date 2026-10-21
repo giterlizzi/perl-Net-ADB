@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: ['main', 'develop']
+  pull_request:
+    branches: ['main']
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Perl ${{ matrix.perl }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ['ubuntu-latest']
+        perl: ['5.16', '5.20', '5.26', '5.30', '5.36', '5.40', 'latest']
+        include:
+          - os: 'macos-latest'
+            perl: 'latest'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up perl
+        uses: shogo82148/actions-setup-perl@v1
+        with:
+          perl-version: ${{ matrix.perl }}
+      - run: perl -V
+      - run: cpanm -n ExtUtils::MakeMaker
+      - run: cpanm -n --installdeps .
+      - run: prove -lv t
+
+  coverage:
+    name: Test coverage
+    runs-on: ubuntu-latest
+    container: davorg/perl-coveralls:latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cpanm -n ExtUtils::MakeMaker
+      - run: cpanm -n --installdeps .
+      - name: Coverage
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: cover -test -report Coveralls || true
